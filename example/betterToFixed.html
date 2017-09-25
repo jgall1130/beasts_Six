@@ -1,0 +1,106 @@
+<script src="../tinytest.js"></script>
+<script> 
+
+function betterToFixed(value, precision) {
+    "use strict";
+
+    /**
+     * if number of decimal places for rounding is not specified, assume accountingJS "default" setting
+     * of 2 decimal places applies -> lib.settings.currency.precision : 2
+     */
+    if (precision === undefined) {
+        precision = 2;
+    }
+
+    /**
+     * if number of decimal places for rounding is set to 3 or more, just apply built-in JS toFixed
+     * functionality
+     */
+    if (precision > 2) {
+        var finalResultToFixed = value.toFixed(precision);
+        return finalResultToFixed;
+    }
+
+    /**
+     * convert number to string
+     * where applicable, trailing zeros in "value" are not included in the returned string
+     */
+    var stringVal = value.toString();
+
+    /**
+     * if value does not include a decimal place, add .00 so that accountingJS "default" setting
+     * of 2 decimal places applies
+     */
+    if (!stringVal.match(/(?:[.])/)) {
+        stringVal = stringVal + ".00";
+    }
+
+    /**
+     * convert string to array that includes 2 string items and no decimal place
+     * item[0] = digits left of "."
+     * item[1] = digits right of "."
+     */
+    var splits = stringVal.split(".");
+    // return array that only includes the 2nd string item from the splits array
+    var splice = splits.splice(1);
+    // convert splice array to string
+    var string = splice.toLocaleString();
+    // push decimal place into the 3rd position in string
+    var moveDecimal = string.substr(0, 2) + "." + string.substr(2, string.length);
+    /**
+     * moveDecimal variable requires at least 2 digits after "." (from var string) for Math.round
+     * to work as intended
+     */
+    var stringLength = string.length;
+    if (stringLength <= 1) {
+        var moveDecimal2 = string.substr(0, 2) + "0." + string.substr(2, string.length);
+    }
+    // combine original item[0] from splits array with modified item[1] (decimal moved right as appropriate)
+    var newNumString = splits.splice(0) + (moveDecimal2 || moveDecimal);
+    /**
+     * convert the new modified string to number for rounding
+     * remove any trailing "." where applicable
+     */
+    var newVal = parseFloat(newNumString);
+    // round the modified number
+    var rounded = Math.round(newVal) / 100;
+    // apply Javascript toFixed method to create a string equivalent of the rounded modified number
+    var finalResult = rounded.toFixed(precision);
+    return finalResult;
+}
+
+tests({
+    "It should apply accountingJS default setting (lib.settings.currency.precision : 2) if precision not specified.": function () {
+       eq(betterToFixed(1), "1.00");
+       eq(betterToFixed(1.049), "1.05");
+       eq(betterToFixed(0.010000000), "0.01");
+    },
+    "It should round correctly for currency calculations, i.e., for any instance in which rounding is performed from three to two decimal places (unlike native toFixed).": function () {
+       eq(betterToFixed(10.235, 2), "10.24");
+       eq(10.235.toFixed(2), "10.23");
+
+       eq(betterToFixed(0.615, 2), "0.62");
+       eq(0.615.toFixed(2), "0.61");
+
+       eq(betterToFixed(1.005, 2), "1.01");
+       eq(1.005.toFixed(2), "1.00");
+    },
+    "It should return the value (as string) when value has trailing zeros regardless of precision setting.": function () {
+       eq(betterToFixed(1.0, 1), "1.0");
+       eq(betterToFixed(1.0, 2), "1.00");
+       eq(betterToFixed(1.0, 3), "1.000");
+       eq(betterToFixed(1.0, 4), "1.0000");
+
+       eq(betterToFixed(1.10, 1), "1.1");
+       eq(betterToFixed(1.010, 2), "1.01");
+
+       eq(betterToFixed(1.00490, 2), "1.00");
+       eq(betterToFixed(1.00490, 3), "1.005");
+     },
+    "It should return the value (as string) regardless of whether value has leading zero before the decimal place.": function () {
+       eq(betterToFixed(0.615, 2), "0.62");
+       eq(betterToFixed(.615, 2), "0.62");
+     }
+});
+
+</script>
